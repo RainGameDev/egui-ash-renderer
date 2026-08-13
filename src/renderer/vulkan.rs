@@ -23,6 +23,22 @@ pub(crate) unsafe fn any_as_u8_slice<T: Sized>(any: &T) -> &[u8] {
     }
 }
 
+/// Return true if the given color format is sRGB encoded.
+///
+/// This determines whether the renderer must convert colors to sRGB in the fragment shader.
+pub fn format_is_srgb(format: vk::Format) -> bool {
+    matches!(
+        format,
+        vk::Format::R8_SRGB
+            | vk::Format::R8G8_SRGB
+            | vk::Format::R8G8B8_SRGB
+            | vk::Format::B8G8R8_SRGB
+            | vk::Format::R8G8B8A8_SRGB
+            | vk::Format::B8G8R8A8_SRGB
+            | vk::Format::A8B8G8R8_SRGB_PACK32
+    )
+}
+
 /// Create a descriptor set layout compatible with the graphics pipeline.
 pub fn create_vulkan_descriptor_set_layout(
     device: &Device,
@@ -84,7 +100,23 @@ pub(crate) fn create_vulkan_pipeline(
         offset: 0,
         size: size_of::<vk::Bool32>(),
     }];
-    let data = [vk::Bool32::from(options.srgb_framebuffer)];
+    // The shader must encode to sRGB exactly when the target attachment is NOT an sRGB format.
+    // With dynamic rendering the attachment format is known, so it is authoritative and the
+    // `Options::srgb_framebuffer` flag is only used with a render pass (which cannot be queried).
+    #[cfg(not(feature = "dynamic-rendering"))]
+    let srgb_framebuffer = options.srgb_framebuffer;
+    #[cfg(feature = "dynamic-rendering")]
+    let srgb_framebuffer = {
+        let srgb = format_is_srgb(dynamic_rendering.color_attachment_format);
+        if srgb != options.srgb_framebuffer {
+            log::warn!(
+                "Options::srgb_framebuffer ({}) does not match the color attachment format, using format-derived value ({srgb})",
+                options.srgb_framebuffer
+            );
+        }
+        srgb
+    };
+    let data = [vk::Bool32::from(srgb_framebuffer)];
     let data_raw = unsafe { any_as_u8_slice(&data) };
     let specialization_info = vk::SpecializationInfo::default()
         .map_entries(&specialization_entries)

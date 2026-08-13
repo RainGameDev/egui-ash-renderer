@@ -48,6 +48,10 @@ pub struct Options {
     /// Is the target framebuffer sRGB.
     ///
     /// If not, the fragment shader converts colors to sRGB, otherwise it outputs color in linear space.
+    ///
+    /// With the `dynamic-rendering` feature this value is ignored: it is derived from the color
+    /// attachment format instead. A mismatch between this flag and the actual attachment format
+    /// makes the UI appear (semi-)transparent, so only rely on it when using a render pass.
     pub srgb_framebuffer: bool,
     /// Sampling options used when creating samplers for managed textures.
     pub sampler_options: SamplerOptions,

@@ -144,6 +144,9 @@ impl System {
 
         let swapchain = Swapchain::new(&vulkan_context)?;
 
+        // The shader must convert colors to sRGB whenever the swapchain image format is not sRGB.
+        let srgb_framebuffer = egui_ash_renderer::vulkan::format_is_srgb(swapchain.format);
+
         // Semaphore use for presentation
         let image_available_semaphore = {
             let semaphore_info = vk::SemaphoreCreateInfo::default();
@@ -193,7 +196,7 @@ impl System {
                 vulkan_context.device.clone(),
                 swapchain.render_pass,
                 Options {
-                    srgb_framebuffer: true,
+                    srgb_framebuffer,
                     ..Default::default()
                 },
             )?
@@ -216,7 +219,7 @@ impl System {
                 vulkan_context.device.clone(),
                 swapchain.render_pass,
                 Options {
-                    srgb_framebuffer: true,
+                    srgb_framebuffer,
                     ..Default::default()
                 },
             )?
@@ -229,7 +232,7 @@ impl System {
             vulkan_context.device.clone(),
             swapchain.render_pass,
             Options {
-                srgb_framebuffer: true,
+                srgb_framebuffer,
                 ..Default::default()
             },
         )?;
@@ -549,6 +552,7 @@ struct Swapchain {
     khr: vk::SwapchainKHR,
     images: Vec<vk::Image>,
     image_views: Vec<vk::ImageView>,
+    format: vk::Format,
     render_pass: vk::RenderPass,
     framebuffers: Vec<vk::Framebuffer>,
 }
@@ -572,6 +576,7 @@ impl Swapchain {
             khr,
             images,
             image_views,
+            format,
             render_pass,
             framebuffers,
         })
@@ -600,6 +605,7 @@ impl Swapchain {
         self.khr = khr;
         self.images = images;
         self.image_views = image_views;
+        self.format = format;
         self.render_pass = render_pass;
         self.framebuffers = framebuffers;
 
