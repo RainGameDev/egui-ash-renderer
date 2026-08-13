@@ -8,12 +8,9 @@ use simple_logger::SimpleLogger;
 use std::error::Error;
 
 struct TexturesDemo {
-    srgb_texture: UserTexture,
-    linear_texture: UserTexture,
+    texture: UserTexture,
     descriptor_set_layout: vk::DescriptorSetLayout,
     descriptor_pool: vk::DescriptorPool,
-
-    show_srgb_texture: bool,
 }
 
 impl App for TexturesDemo {
@@ -36,33 +33,19 @@ impl App for TexturesDemo {
         let descriptor_set_layout = create_vulkan_descriptor_set_layout(device).unwrap();
         let descriptor_pool = create_vulkan_descriptor_pool(device, 2).unwrap();
 
-        let srgb_texture = UserTexture::from_memory(
-            app,
-            memory_properties,
-            descriptor_set_layout,
-            descriptor_pool,
-            vk::Format::R8G8B8A8_SRGB,
-            include_bytes!("../assets/images/img2.jpg"),
-        );
-
-        let linear_texture = UserTexture::from_memory(
+        let texture = UserTexture::from_memory(
             app,
             memory_properties,
             descriptor_set_layout,
             descriptor_pool,
             vk::Format::R8G8B8A8_UNORM,
-            include_bytes!("../assets/images/normals.jpg"),
+            include_bytes!("../assets/images/img2.jpg"),
         );
 
-        let show_srgb_texture = true;
-
         Self {
-            srgb_texture,
-            linear_texture,
+            texture,
             descriptor_set_layout,
             descriptor_pool,
-
-            show_srgb_texture,
         }
     }
 
@@ -74,18 +57,14 @@ impl App for TexturesDemo {
             });
 
         egui::Window::new("Used defined texture").show(ctx, |ui| {
-            ui.label("This texture is loaded and managed by the user.");
-            ui.horizontal(|ui| {
-                ui.radio_value(&mut self.show_srgb_texture, true, "sRGB");
-                ui.radio_value(&mut self.show_srgb_texture, false, "Linear");
-            });
-
-            let texture = if self.show_srgb_texture {
-                self.srgb_texture.egui_texture
-            } else {
-                self.linear_texture.egui_texture
-            };
-            egui::Image::new(texture).fit_to_original_size(0.8).ui(ui);
+            ui.label(
+                "This texture is loaded and managed by the user. \
+                 It must be created with an R8G8B8A8_UNORM image view, \
+                 i.e. store gamma (sRGB) encoded premultiplied-alpha data.",
+            );
+            egui::Image::new(self.texture.egui_texture)
+                .fit_to_original_size(0.8)
+                .ui(ui);
         });
     }
 
@@ -95,8 +74,7 @@ impl App for TexturesDemo {
             device.destroy_descriptor_pool(self.descriptor_pool, None);
             device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
         }
-        self.srgb_texture.texture.destroy(device);
-        self.linear_texture.texture.destroy(device);
+        self.texture.texture.destroy(device);
     }
 }
 

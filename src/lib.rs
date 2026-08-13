@@ -92,6 +92,10 @@
 //! renderer.remove_user_texture(texture_id);
 //! ```
 //!
+//! The image view of a custom texture must use an `R8G8B8A8_UNORM` format, i.e. the image must store
+//! gamma (sRGB) encoded premultiplied-alpha data. The fragment shader decodes the sampled values to
+//! linear space itself. The managed textures follow the same convention.
+//!
 //! You can find a example using egui managed and user managed textures [here](./examples/textures.rs).
 //!
 //! ## Features
