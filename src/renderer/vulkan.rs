@@ -3,7 +3,7 @@
 //! A set of functions used to ease Vulkan resources creations. These are supposed to be internal but
 //! are exposed since they might help users create descriptors sets when using the custom textures.
 
-use crate::{Options, RendererResult};
+use crate::{Options, RendererResult, SamplerOptions};
 use ash::{Device, vk};
 pub(crate) use buffer::*;
 use std::{
@@ -299,6 +299,30 @@ pub fn create_vulkan_descriptor_set(
     Ok(set)
 }
 
+/// Create a sampler from the given sampling options.
+pub(crate) fn create_vulkan_sampler(
+    device: &Device,
+    sampler_options: SamplerOptions,
+) -> RendererResult<vk::Sampler> {
+    let sampler_info = vk::SamplerCreateInfo::default()
+        .mag_filter(sampler_options.filter)
+        .min_filter(sampler_options.filter)
+        .address_mode_u(sampler_options.address_mode)
+        .address_mode_v(sampler_options.address_mode)
+        .address_mode_w(sampler_options.address_mode)
+        .anisotropy_enable(sampler_options.anisotropy_enabled)
+        .max_anisotropy(sampler_options.anisotropy_amount as f32)
+        .border_color(vk::BorderColor::INT_OPAQUE_BLACK)
+        .unnormalized_coordinates(false)
+        .compare_enable(false)
+        .compare_op(vk::CompareOp::ALWAYS)
+        .mipmap_mode(sampler_options.mipmap_mode)
+        .mip_lod_bias(0.0)
+        .min_lod(0.0)
+        .max_lod(1.0);
+    unsafe { Ok(device.create_sampler(&sampler_info, None)?) }
+}
+
 mod buffer {
 
     use crate::{
@@ -327,6 +351,7 @@ mod buffer {
 mod texture {
 
     use super::buffer::*;
+    use super::create_vulkan_sampler;
     use crate::RendererResult;
     use crate::SamplerOptions;
     use crate::renderer::allocator::{Allocate, Allocator, Memory};
@@ -398,25 +423,7 @@ mod texture {
                 unsafe { device.create_image_view(&create_info, None)? }
             };
 
-            let sampler = {
-                let sampler_info = vk::SamplerCreateInfo::default()
-                    .mag_filter(sampler_options.filter)
-                    .min_filter(sampler_options.filter)
-                    .address_mode_u(sampler_options.address_mode)
-                    .address_mode_v(sampler_options.address_mode)
-                    .address_mode_w(sampler_options.address_mode)
-                    .anisotropy_enable(sampler_options.anisotropy_enabled)
-                    .max_anisotropy(sampler_options.anisotropy_amount as f32)
-                    .border_color(vk::BorderColor::INT_OPAQUE_BLACK)
-                    .unnormalized_coordinates(false)
-                    .compare_enable(false)
-                    .compare_op(vk::CompareOp::ALWAYS)
-                    .mipmap_mode(sampler_options.mipmap_mode)
-                    .mip_lod_bias(0.0)
-                    .min_lod(0.0)
-                    .max_lod(1.0);
-                unsafe { device.create_sampler(&sampler_info, None)? }
-            };
+            let sampler = create_vulkan_sampler(device, sampler_options)?;
 
             let mut texture = Self {
                 image,

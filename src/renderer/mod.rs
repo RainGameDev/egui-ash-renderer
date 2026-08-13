@@ -349,6 +349,59 @@ impl Renderer {
         Ok(())
     }
 
+    /// Change the sampling options used when creating samplers for managed textures.
+    ///
+    /// Only applies to textures uploaded after this call.
+    ///
+    /// # Arguments
+    ///
+    /// * `sampler_options` - The new sampling options.
+    pub fn set_sampler_options(&mut self, sampler_options: SamplerOptions) {
+        self.options.sampler_options = sampler_options;
+    }
+
+    /// Apply the current sampling options to all already uploaded managed textures.
+    ///
+    /// Texture data is kept, but each texture gets a fresh sampler (and a matching
+    /// descriptor set) built from the current `Options::sampler_options`. Call this
+    /// after `set_sampler_options` to make sampling changes affect existing textures.
+    ///
+    /// # Errors
+    ///
+    /// * [`RendererError`] - If any Vulkan error is encountered.
+    pub fn update_samplers(&mut self) -> RendererResult<()> {
+        unsafe {
+            self.device.device_wait_idle()?;
+        }
+
+        let mut new_sets = Vec::with_capacity(self.managed_textures.len());
+        for (id, texture) in self.managed_textures.iter_mut() {
+            unsafe {
+                self.device.destroy_sampler(texture.sampler, None);
+            }
+            texture.sampler = create_vulkan_sampler(&self.device, self.options.sampler_options)?;
+
+            let set = create_vulkan_descriptor_set(
+                &self.device,
+                self.descriptor_set_layout,
+                self.descriptor_pool,
+                texture.image_view,
+                texture.sampler,
+            )?;
+            new_sets.push((*id, set));
+        }
+
+        for (id, set) in new_sets {
+            if let Some(previous) = self.textures.insert(id, set) {
+                unsafe {
+                    self.device.free_descriptor_sets(self.descriptor_pool, &[previous])?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Free egui managed textures.
     ///
     /// You should pass the list of textures detla contained in the [`egui::TexturesDelta::set`].
