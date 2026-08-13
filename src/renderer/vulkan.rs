@@ -351,7 +351,10 @@ pub(crate) fn create_vulkan_sampler(
         .mipmap_mode(sampler_options.mipmap_mode)
         .mip_lod_bias(0.0)
         .min_lod(0.0)
-        .max_lod(1.0);
+        // Textures are uploaded with a single mip level, so never sample below level 0.
+        // A higher max_lod would select non-existent mip levels when minifying with a
+        // linear minification filter, producing undefined (often transparent) results.
+        .max_lod(0.0);
     unsafe { Ok(device.create_sampler(&sampler_info, None)?) }
 }
 
