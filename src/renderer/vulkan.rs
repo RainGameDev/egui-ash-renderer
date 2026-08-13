@@ -328,6 +328,7 @@ mod texture {
 
     use super::buffer::*;
     use crate::RendererResult;
+    use crate::SamplerOptions;
     use crate::renderer::allocator::{Allocate, Allocator, Memory};
     use ash::Device;
     use ash::vk;
@@ -341,6 +342,7 @@ mod texture {
     }
 
     impl Texture {
+        #[allow(clippy::too_many_arguments)]
         pub(crate) fn from_rgba8(
             device: &Device,
             queue: vk::Queue,
@@ -349,10 +351,19 @@ mod texture {
             width: u32,
             height: u32,
             data: &[u8],
+            sampler_options: SamplerOptions,
         ) -> RendererResult<Self> {
             let (texture, staging_buff, staging_mem) =
                 execute_one_time_commands(device, queue, command_pool, |buffer| {
-                    Self::cmd_from_rgba(device, allocator, buffer, width, height, data)
+                    Self::cmd_from_rgba(
+                        device,
+                        allocator,
+                        buffer,
+                        width,
+                        height,
+                        data,
+                        sampler_options,
+                    )
                 })??;
 
             allocator.destroy_buffer(device, staging_buff, staging_mem)?;
@@ -367,6 +378,7 @@ mod texture {
             width: u32,
             height: u32,
             data: &[u8],
+            sampler_options: SamplerOptions,
         ) -> RendererResult<(Self, vk::Buffer, Memory)> {
             let (image, image_mem) = allocator.create_image(device, width, height)?;
 
@@ -388,18 +400,18 @@ mod texture {
 
             let sampler = {
                 let sampler_info = vk::SamplerCreateInfo::default()
-                    .mag_filter(vk::Filter::LINEAR)
-                    .min_filter(vk::Filter::LINEAR)
-                    .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_EDGE)
-                    .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)
-                    .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_EDGE)
-                    .anisotropy_enable(false)
-                    .max_anisotropy(1.0)
+                    .mag_filter(sampler_options.filter)
+                    .min_filter(sampler_options.filter)
+                    .address_mode_u(sampler_options.address_mode)
+                    .address_mode_v(sampler_options.address_mode)
+                    .address_mode_w(sampler_options.address_mode)
+                    .anisotropy_enable(sampler_options.anisotropy_enabled)
+                    .max_anisotropy(sampler_options.anisotropy_amount as f32)
                     .border_color(vk::BorderColor::INT_OPAQUE_BLACK)
                     .unnormalized_coordinates(false)
                     .compare_enable(false)
                     .compare_op(vk::CompareOp::ALWAYS)
-                    .mipmap_mode(vk::SamplerMipmapMode::LINEAR)
+                    .mipmap_mode(sampler_options.mipmap_mode)
                     .mip_lod_bias(0.0)
                     .min_lod(0.0)
                     .max_lod(1.0);

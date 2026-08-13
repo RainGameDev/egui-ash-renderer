@@ -49,6 +49,8 @@ pub struct Options {
     ///
     /// If not, the fragment shader converts colors to sRGB, otherwise it outputs color in linear space.
     pub srgb_framebuffer: bool,
+    /// Sampling options used when creating samplers for managed textures.
+    pub sampler_options: SamplerOptions,
 }
 
 impl Default for Options {
@@ -58,6 +60,46 @@ impl Default for Options {
             enable_depth_test: false,
             enable_depth_write: false,
             srgb_framebuffer: false,
+            sampler_options: SamplerOptions::default(),
+        }
+    }
+}
+
+/// Sampling options used to create the samplers of managed textures.
+#[derive(Clone, Copy)]
+pub struct SamplerOptions {
+    /// Filter used for magnification and minification.
+    pub filter: vk::Filter,
+    /// Address mode applied to all three axes.
+    pub address_mode: vk::SamplerAddressMode,
+    /// Whether anisotropic filtering is enabled.
+    pub anisotropy_enabled: bool,
+    /// Maximum anisotropy used when `anisotropy_enabled` is true.
+    pub anisotropy_amount: u8,
+    /// Mipmap filter mode.
+    pub mipmap_mode: vk::SamplerMipmapMode,
+}
+
+impl std::fmt::Debug for SamplerOptions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SamplerOptions")
+            .field("filter", &self.filter.as_raw())
+            .field("address_mode", &self.address_mode.as_raw())
+            .field("anisotropy_enabled", &self.anisotropy_enabled)
+            .field("anisotropy_amount", &self.anisotropy_amount)
+            .field("mipmap_mode", &self.mipmap_mode.as_raw())
+            .finish()
+    }
+}
+
+impl Default for SamplerOptions {
+    fn default() -> Self {
+        Self {
+            filter: vk::Filter::LINEAR,
+            address_mode: vk::SamplerAddressMode::CLAMP_TO_EDGE,
+            anisotropy_enabled: false,
+            anisotropy_amount: 16,
+            mipmap_mode: vk::SamplerMipmapMode::LINEAR,
         }
     }
 }
@@ -376,6 +418,7 @@ impl Renderer {
                     width,
                     height,
                     data.as_slice(),
+                    self.options.sampler_options,
                 )?;
 
                 let set = create_vulkan_descriptor_set(
